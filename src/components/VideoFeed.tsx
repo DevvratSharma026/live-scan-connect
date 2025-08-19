@@ -19,6 +19,7 @@ export const VideoFeed = () => {
 
   const startCamera = async () => {
     try {
+      console.log("Requesting camera access...");
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "environment", // Use rear camera on mobile
@@ -28,16 +29,33 @@ export const VideoFeed = () => {
         audio: false
       });
 
+      console.log("Camera access granted, setting up video...");
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        setStream(mediaStream);
-        setIsStreaming(true);
         
-        toast({
-          title: "Camera Access Granted",
-          description: "Live detection is now active",
-          duration: 3000,
-        });
+        // Ensure video starts playing
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Video metadata loaded, starting playback...");
+          videoRef.current?.play().then(() => {
+            console.log("Video playback started successfully");
+            setStream(mediaStream);
+            setIsStreaming(true);
+            
+            toast({
+              title: "Camera Access Granted",
+              description: "Live detection is now active",
+              duration: 3000,
+            });
+          }).catch((playError) => {
+            console.error("Error starting video playback:", playError);
+            toast({
+              title: "Video Playback Error",
+              description: "Could not start video playback",
+              variant: "destructive",
+              duration: 5000,
+            });
+          });
+        };
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
@@ -51,14 +69,24 @@ export const VideoFeed = () => {
   };
 
   const stopCamera = () => {
+    console.log("Stopping camera...");
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach(track => {
+        console.log("Stopping track:", track.kind);
+        track.stop();
+      });
       setStream(null);
       setIsStreaming(false);
       
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
+      
+      toast({
+        title: "Camera Stopped",
+        description: "Camera has been turned off",
+        duration: 2000,
+      });
     }
   };
 
@@ -119,6 +147,14 @@ export const VideoFeed = () => {
               playsInline
               muted
               className="w-full h-full object-cover"
+              onError={(e) => {
+                console.error("Video element error:", e);
+                toast({
+                  title: "Video Error",
+                  description: "Error displaying video feed",
+                  variant: "destructive",
+                });
+              }}
             />
             <canvas
               ref={canvasRef}
