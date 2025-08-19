@@ -2,15 +2,9 @@ import { QRCodeJoin } from "@/components/QRCodeJoin";
 import { Button } from "@/components/ui/button";
 import { Smartphone, Scan } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEffect } from "react";
 
 const Index = () => {
-  console.log("Index component rendering");
   const webrtcUrl = `${window.location.origin}/webrtc`;
-  
-  useEffect(() => {
-    console.log("Index component mounted, Router context should be available");
-  }, []);
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
