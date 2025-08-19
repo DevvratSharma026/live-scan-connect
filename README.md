@@ -1,73 +1,112 @@
-# Welcome to your Lovable project
+# Live Detection Scanner
 
-## Project info
+A real-time AI detection scanner with WebRTC camera access. Scan the QR code to start live object detection using your phone's camera.
 
-**URL**: https://lovable.dev/projects/36934fbe-4802-4787-b42a-b6ae45400b0b
+## Features
 
-## How can I edit this code?
+- **QR Code Scanner**: Generate QR codes that link to the camera interface
+- **WebRTC Camera Access**: Real-time video feed from device camera
+- **Canvas Overlay**: Transparent overlay for drawing detection bounding boxes
+- **Mobile-First Design**: Responsive layout optimized for mobile devices
+- **Real-time Processing**: Processes video frames for AI inference
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- React 18 with TypeScript
+- Vite for development and building
+- Tailwind CSS for styling
+- React Router for navigation
+- WebRTC API for camera access
+- Canvas API for overlay graphics
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/36934fbe-4802-4787-b42a-b6ae45400b0b) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Installation
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repository
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Usage
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. **Landing Page (`/`)**: Shows a QR code that links to the camera interface
+2. **Camera Interface (`/webrtc`)**: Accesses device camera and displays live video with overlay
 
-**Use GitHub Codespaces**
+### Camera Features
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Environment camera (rear camera on mobile) preferred
+- Real-time video processing at 10 FPS
+- Canvas overlay for detection visualization
+- Start/stop camera controls
 
-## What technologies are used for this project?
+## AI Inference Integration
 
-This project is built with:
+> **Note**: AI inference will be added in a future update using `onnxruntime-web`
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+The app is prepared for AI model integration:
 
-## How can I deploy this project?
+- `runInference(frame: ImageData)` function placeholder in `VideoFeed.tsx`
+- `public/models/` folder for ONNX model files
+- Canvas overlay system for drawing bounding boxes
+- Frame processing pipeline at 10 FPS
 
-Simply open [Lovable](https://lovable.dev/projects/36934fbe-4802-4787-b42a-b6ae45400b0b) and click on Share -> Publish.
+### Planned Features
 
-## Can I connect a custom domain to my Lovable project?
+- ONNX model loading and inference
+- Real-time object detection
+- Bounding box visualization
+- Detection confidence scores
+- Multiple model support
 
-Yes, you can!
+## Project Structure
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```
+src/
+├── components/
+│   ├── QRCodeJoin.tsx      # QR code generation component
+│   ├── VideoFeed.tsx       # WebRTC camera and canvas overlay
+│   └── ui/                 # Shadcn UI components
+├── pages/
+│   ├── Index.tsx           # Landing page with QR code
+│   ├── WebRTC.tsx          # Camera interface page
+│   └── NotFound.tsx        # 404 page
+└── styles/
+    └── index.css           # Global styles and design tokens
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+public/
+└── models/                 # ONNX model files (empty for now)
+```
+
+## Design System
+
+The app uses a modern dark theme with tech-focused colors:
+
+- **Primary**: Bright green (`#22c55e`) for accents and highlights
+- **Background**: Dark slate for main background
+- **Cards**: Slightly lighter dark slate with subtle borders
+- **Gradients**: Tech-gradient from green to teal
+- **Effects**: Glow effects and smooth transitions
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly on mobile devices
+5. Submit a pull request
+
+## License
+
+This project is open source and available under the MIT License.
