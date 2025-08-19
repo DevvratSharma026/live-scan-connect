@@ -1,11 +1,16 @@
 import { QRCodeJoin } from "@/components/QRCodeJoin";
 import { Button } from "@/components/ui/button";
 import { Smartphone, Scan } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { useEffect } from "react";
 
 const Index = () => {
-  const navigate = useNavigate();
+  console.log("Index component rendering");
   const webrtcUrl = `${window.location.origin}/webrtc`;
+  
+  useEffect(() => {
+    console.log("Index component mounted, Router context should be available");
+  }, []);
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -37,14 +42,12 @@ const Index = () => {
             <div className="flex-1 h-px bg-border" />
           </div>
 
-          <Button 
-            variant="outline" 
-            className="w-full"
-            onClick={() => navigate('/webrtc')}
-          >
-            <Smartphone className="w-4 h-4 mr-2" />
-            Open Camera Directly
-          </Button>
+          <Link to="/webrtc">
+            <Button variant="outline" className="w-full">
+              <Smartphone className="w-4 h-4 mr-2" />
+              Open Camera Directly
+            </Button>
+          </Link>
         </div>
 
         {/* Instructions */}
