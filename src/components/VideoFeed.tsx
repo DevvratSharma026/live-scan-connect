@@ -32,55 +32,59 @@ export const VideoFeed = () => {
       console.log("Camera access granted, stream tracks:", mediaStream.getTracks().map(t => t.kind));
       
       if (videoRef.current) {
+        const video = videoRef.current;
         console.log("Setting srcObject on video element...");
-        videoRef.current.srcObject = mediaStream;
+        
+        // Set video properties first
+        video.srcObject = mediaStream;
+        video.muted = true;
+        video.playsInline = true;
+        video.autoplay = true;
+        
         setStream(mediaStream);
         
-        // Try to start playing immediately
-        console.log("Attempting to play video...");
-        try {
-          await videoRef.current.play();
-          console.log("Video play() succeeded");
-          setIsStreaming(true);
-          
-          toast({
-            title: "Camera Access Granted",
-            description: "Live detection is now active",
-            duration: 3000,
-          });
-        } catch (playError) {
-          console.error("Video play() failed:", playError);
-          
-          // Fallback: try with onloadedmetadata
-          videoRef.current.onloadedmetadata = async () => {
-            console.log("Video metadata loaded, trying play again...");
-            try {
-              await videoRef.current!.play();
-              console.log("Video playback started after metadata load");
-              setIsStreaming(true);
-              
-              toast({
-                title: "Camera Access Granted",
-                description: "Live detection is now active",
-                duration: 3000,
-              });
-            } catch (metadataPlayError) {
-              console.error("Play failed even after metadata load:", metadataPlayError);
-              toast({
-                title: "Video Playback Error",
-                description: "Could not start video playback",
-                variant: "destructive",
-                duration: 5000,
-              });
-            }
-          };
-        }
+        // Set streaming state immediately since we have the stream
+        setIsStreaming(true);
+        
+        // Show success toast
+        toast({
+          title: "Camera Access Granted", 
+          description: "Live detection is now active",
+          duration: 3000,
+        });
+        
+        console.log("Video element configured, waiting for video to start...");
+        
+        // Ensure video starts playing
+        const tryPlay = async () => {
+          try {
+            console.log("Attempting video.play()...");
+            await video.play();
+            console.log("Video play() succeeded");
+          } catch (playError) {
+            console.error("Video play() failed:", playError);
+            
+            // Try again on metadata loaded
+            video.onloadedmetadata = async () => {
+              console.log("Video metadata loaded, retrying play...");
+              try {
+                await video.play();
+                console.log("Video play() succeeded after metadata");
+              } catch (retryError) {
+                console.error("Video play() still failed:", retryError);
+              }
+            };
+          }
+        };
+        
+        // Try to play immediately
+        tryPlay();
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
       toast({
         title: "Camera Access Denied",
-        description: "Please allow camera access to use live detection",
+        description: "Please allow camera access to use live detection", 
         variant: "destructive",
         duration: 5000,
       });
