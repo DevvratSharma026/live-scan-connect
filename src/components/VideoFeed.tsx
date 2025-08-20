@@ -1,14 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, CameraOff } from "lucide-react";
+import { Camera, CameraOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-// Placeholder inference function - to be implemented with onnxruntime-web
-const runInference = (frame: ImageData) => {
-  // TODO: Implement ONNX model inference here
-  console.log("Running inference on frame:", frame.width, "x", frame.height);
-  return [];
-};
+import { ObjectDetector, Detection, DetectionMetrics } from "@/utils/objectDetection";
+import { drawDetections, drawMetrics, drawLoadingIndicator } from "@/utils/detectionDrawing";
 
 export const VideoFeed = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -16,7 +11,43 @@ export const VideoFeed = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [pendingStream, setPendingStream] = useState<MediaStream | null>(null);
+  const [detector] = useState(() => new ObjectDetector());
+  const [isDetectorLoading, setIsDetectorLoading] = useState(false);
+  const [detections, setDetections] = useState<Detection[]>([]);
+  const [metrics, setMetrics] = useState<DetectionMetrics>({
+    fps: 0,
+    medianLatency: 0,
+    lastProcessingTime: 0
+  });
   const { toast } = useToast();
+
+  // Initialize detector when streaming starts
+  useEffect(() => {
+    if (isStreaming && !detector.isReady() && !detector.isInitializing()) {
+      setIsDetectorLoading(true);
+      detector.initialize()
+        .then(() => {
+          console.log('Object detector initialized');
+          toast({
+            title: "AI Model Loaded",
+            description: "Object detection is now active",
+            duration: 3000,
+          });
+        })
+        .catch((error) => {
+          console.error('Failed to initialize detector:', error);
+          toast({
+            title: "Model Loading Failed",
+            description: "Object detection unavailable",
+            variant: "destructive",
+            duration: 5000,
+          });
+        })
+        .finally(() => {
+          setIsDetectorLoading(false);
+        });
+    }
+  }, [isStreaming, detector, toast]);
 
   // Effect to handle pending stream when video element becomes available
   useEffect(() => {
@@ -140,11 +171,11 @@ export const VideoFeed = () => {
     }
   };
 
-  // Process video frames for inference
+  // Process video frames for object detection
   useEffect(() => {
     if (!isStreaming || !videoRef.current || !canvasRef.current) return;
 
-    const processFrame = () => {
+    const processFrame = async () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
@@ -154,37 +185,57 @@ export const VideoFeed = () => {
       if (!ctx) return;
 
       // Set canvas size to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
 
-      // Draw video frame to canvas (hidden)
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Get image data for inference
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      
-      // Run inference (placeholder)
-      const detections = runInference(imageData);
-      
-      // Clear canvas for overlay drawing
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Draw bounding boxes (example - will be implemented with real detections)
-      ctx.strokeStyle = "hsl(var(--primary))";
-      ctx.lineWidth = 2;
-      ctx.font = "16px system-ui";
-      ctx.fillStyle = "hsl(var(--primary))";
-      
-      // TODO: Draw actual detection boxes from ONNX model results
-      // detections.forEach(detection => {
-      //   ctx.strokeRect(detection.x, detection.y, detection.width, detection.height);
-      //   ctx.fillText(detection.label, detection.x, detection.y - 5);
-      // });
+      // Handle loading state
+      if (isDetectorLoading || !detector.isReady()) {
+        drawLoadingIndicator(
+          ctx, 
+          canvas.width, 
+          canvas.height, 
+          isDetectorLoading ? 'Loading AI model...' : 'Model not ready'
+        );
+        return;
+      }
+
+      try {
+        // Create a temporary canvas to capture frame data
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return;
+
+        tempCanvas.width = video.videoWidth;
+        tempCanvas.height = video.videoHeight;
+        tempCtx.drawImage(video, 0, 0);
+        
+        // Get image data for inference
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // Run object detection
+        const newDetections = await detector.detect(imageData);
+        setDetections(newDetections);
+        
+        // Draw detections on overlay canvas
+        drawDetections(ctx, newDetections, canvas.width, canvas.height);
+        
+        // Draw metrics
+        const newMetrics = detector.getMetrics();
+        setMetrics(newMetrics);
+        drawMetrics(ctx, newMetrics, canvas.width);
+        
+      } catch (error) {
+        console.error('Frame processing error:', error);
+        // Clear canvas on error
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
     };
 
-    const interval = setInterval(processFrame, 100); // Process at 10 FPS
+    const interval = setInterval(processFrame, 100); // Process at ~10 FPS
     return () => clearInterval(interval);
-  }, [isStreaming]);
+  }, [isStreaming, detector, isDetectorLoading]);
 
   return (
     <div className="w-full space-y-4">
@@ -230,14 +281,20 @@ export const VideoFeed = () => {
       <div className="flex justify-center">
         <Button
           onClick={isStreaming ? stopCamera : startCamera}
+          disabled={isDetectorLoading}
           size="lg"
           className={`${
             isStreaming 
               ? "bg-destructive hover:bg-destructive/90" 
               : "bg-tech-gradient hover:opacity-90"
-          } transition-smooth`}
+          } transition-smooth min-w-[140px]`}
         >
-          {isStreaming ? (
+          {isDetectorLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Loading AI...
+            </>
+          ) : isStreaming ? (
             <>
               <CameraOff className="w-5 h-5 mr-2" />
               Stop Camera
@@ -250,6 +307,12 @@ export const VideoFeed = () => {
           )}
         </Button>
       </div>
+      
+      {detections.length > 0 && (
+        <div className="text-center text-sm text-muted-foreground">
+          Detected {detections.length} object{detections.length !== 1 ? 's' : ''}
+        </div>
+      )}
     </div>
   );
 };
