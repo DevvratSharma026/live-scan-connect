@@ -189,36 +189,35 @@ export const VideoFeed = () => {
   return (
     <div className="w-full space-y-4">
       <div className="relative aspect-[4/3] bg-secondary rounded-2xl overflow-hidden border border-video">
-        {isStreaming ? (
-          <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                console.error("Video element error:", e);
-                toast({
-                  title: "Video Error",
-                  description: "Error displaying video feed",
-                  variant: "destructive",
-                });
-              }}
-            />
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              style={{ background: "transparent" }}
-            />
-            <div className="absolute top-3 right-3">
-              <div className="flex items-center space-x-1 bg-primary/20 backdrop-blur-sm rounded-full px-2 py-1">
-                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                <span className="text-xs text-primary font-medium">LIVE</span>
-              </div>
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full h-full object-cover ${isStreaming ? 'block' : 'hidden'}`}
+          onError={(e) => {
+            console.error("Video element error:", e);
+            toast({
+              title: "Video Error",
+              description: "Error displaying video feed",
+              variant: "destructive",
+            });
+          }}
+        />
+        <canvas
+          ref={canvasRef}
+          className={`absolute inset-0 w-full h-full pointer-events-none ${isStreaming ? 'block' : 'hidden'}`}
+          style={{ background: "transparent" }}
+        />
+        {isStreaming && (
+          <div className="absolute top-3 right-3">
+            <div className="flex items-center space-x-1 bg-primary/20 backdrop-blur-sm rounded-full px-2 py-1">
+              <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+              <span className="text-xs text-primary font-medium">LIVE</span>
             </div>
-          </>
-        ) : (
+          </div>
+        )}
+        {!isStreaming && (
           <div className="w-full h-full flex items-center justify-center">
             <div className="text-center space-y-3">
               <Camera className="w-12 h-12 text-muted-foreground mx-auto" />
