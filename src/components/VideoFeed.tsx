@@ -15,7 +15,48 @@ export const VideoFeed = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [pendingStream, setPendingStream] = useState<MediaStream | null>(null);
   const { toast } = useToast();
+
+  // Effect to handle pending stream when video element becomes available
+  useEffect(() => {
+    if (pendingStream && videoRef.current && !isStreaming) {
+      console.log("Video element now available, setting up stream...");
+      const video = videoRef.current;
+      
+      video.srcObject = pendingStream;
+      video.muted = true;
+      video.playsInline = true;
+      video.autoplay = true;
+      
+      setStream(pendingStream);
+      setPendingStream(null);
+      
+      const handleLoadedMetadata = () => {
+        console.log("Video metadata loaded, dimensions:", video.videoWidth, "x", video.videoHeight);
+        setIsStreaming(true);
+        
+        toast({
+          title: "Camera Access Granted",
+          description: "Live detection is now active",
+          duration: 3000,
+        });
+      };
+      
+      video.addEventListener('loadedmetadata', handleLoadedMetadata);
+      
+      // Try to play
+      video.play().then(() => {
+        console.log("Video play() succeeded");
+      }).catch((error) => {
+        console.error("Video play() failed:", error);
+      });
+      
+      return () => {
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      };
+    }
+  }, [pendingStream, isStreaming, toast]);
 
   const startCamera = async () => {
     try {
@@ -30,27 +71,21 @@ export const VideoFeed = () => {
       });
 
       console.log("Camera access granted, stream tracks:", mediaStream.getTracks().map(t => t.kind));
+      console.log("Video ref available:", !!videoRef.current);
       
       if (videoRef.current) {
+        console.log("Setting stream directly...");
         const video = videoRef.current;
-        console.log("Video element exists:", !!video);
-        console.log("Setting srcObject on video element...");
         
-        // Clear any existing source first
-        video.srcObject = null;
-        
-        // Set the stream
         video.srcObject = mediaStream;
+        video.muted = true;
+        video.playsInline = true;
+        video.autoplay = true;
+        
         setStream(mediaStream);
         
-        console.log("Stream set, current srcObject:", !!video.srcObject);
-        console.log("Stream active:", mediaStream.active);
-        console.log("Stream tracks:", mediaStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
-        
-        // Wait for the video to be ready and then set streaming state
-        const handleVideoReady = () => {
-          console.log("Video is ready, setting streaming state");
-          console.log("Video dimensions:", video.videoWidth, "x", video.videoHeight);
+        const handleLoadedMetadata = () => {
+          console.log("Video metadata loaded, dimensions:", video.videoWidth, "x", video.videoHeight);
           setIsStreaming(true);
           
           toast({
@@ -60,43 +95,17 @@ export const VideoFeed = () => {
           });
         };
         
-        // Set up event listeners
-        video.onloadedmetadata = () => {
-          console.log("Video metadata loaded");
-          handleVideoReady();
-        };
+        video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
         
-        video.oncanplay = () => {
-          console.log("Video can play");
-        };
-        
-        video.onplaying = () => {
-          console.log("Video is playing");
-        };
-        
-        video.onerror = (e) => {
-          console.error("Video error:", e);
-        };
-        
-        // Force video attributes
-        video.setAttribute('autoplay', 'true');
-        video.setAttribute('playsinline', 'true');
-        video.setAttribute('muted', 'true');
-        video.muted = true;
-        video.playsInline = true;
-        
-        console.log("Attempting to play video...");
-        try {
-          const playPromise = video.play();
-          if (playPromise !== undefined) {
-            await playPromise;
-            console.log("Video play() promise resolved");
-          }
-        } catch (playError) {
-          console.error("Video play() failed:", playError);
-        }
+        // Try to play
+        video.play().then(() => {
+          console.log("Video play() succeeded");
+        }).catch((error) => {
+          console.error("Video play() failed:", error);
+        });
       } else {
-        console.error("Video ref is null!");
+        console.log("Video ref not available, storing stream for later...");
+        setPendingStream(mediaStream);
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
