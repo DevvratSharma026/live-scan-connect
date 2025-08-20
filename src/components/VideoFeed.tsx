@@ -33,58 +33,76 @@ export const VideoFeed = () => {
       
       if (videoRef.current) {
         const video = videoRef.current;
+        console.log("Video element exists:", !!video);
         console.log("Setting srcObject on video element...");
         
-        // Set video properties first
-        video.srcObject = mediaStream;
-        video.muted = true;
-        video.playsInline = true;
-        video.autoplay = true;
+        // Clear any existing source first
+        video.srcObject = null;
         
+        // Set the stream
+        video.srcObject = mediaStream;
         setStream(mediaStream);
         
-        // Set streaming state immediately since we have the stream
-        setIsStreaming(true);
+        console.log("Stream set, current srcObject:", !!video.srcObject);
+        console.log("Stream active:", mediaStream.active);
+        console.log("Stream tracks:", mediaStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
         
-        // Show success toast
-        toast({
-          title: "Camera Access Granted", 
-          description: "Live detection is now active",
-          duration: 3000,
-        });
-        
-        console.log("Video element configured, waiting for video to start...");
-        
-        // Ensure video starts playing
-        const tryPlay = async () => {
-          try {
-            console.log("Attempting video.play()...");
-            await video.play();
-            console.log("Video play() succeeded");
-          } catch (playError) {
-            console.error("Video play() failed:", playError);
-            
-            // Try again on metadata loaded
-            video.onloadedmetadata = async () => {
-              console.log("Video metadata loaded, retrying play...");
-              try {
-                await video.play();
-                console.log("Video play() succeeded after metadata");
-              } catch (retryError) {
-                console.error("Video play() still failed:", retryError);
-              }
-            };
-          }
+        // Wait for the video to be ready and then set streaming state
+        const handleVideoReady = () => {
+          console.log("Video is ready, setting streaming state");
+          console.log("Video dimensions:", video.videoWidth, "x", video.videoHeight);
+          setIsStreaming(true);
+          
+          toast({
+            title: "Camera Access Granted",
+            description: "Live detection is now active",
+            duration: 3000,
+          });
         };
         
-        // Try to play immediately
-        tryPlay();
+        // Set up event listeners
+        video.onloadedmetadata = () => {
+          console.log("Video metadata loaded");
+          handleVideoReady();
+        };
+        
+        video.oncanplay = () => {
+          console.log("Video can play");
+        };
+        
+        video.onplaying = () => {
+          console.log("Video is playing");
+        };
+        
+        video.onerror = (e) => {
+          console.error("Video error:", e);
+        };
+        
+        // Force video attributes
+        video.setAttribute('autoplay', 'true');
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('muted', 'true');
+        video.muted = true;
+        video.playsInline = true;
+        
+        console.log("Attempting to play video...");
+        try {
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            await playPromise;
+            console.log("Video play() promise resolved");
+          }
+        } catch (playError) {
+          console.error("Video play() failed:", playError);
+        }
+      } else {
+        console.error("Video ref is null!");
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
       toast({
         title: "Camera Access Denied",
-        description: "Please allow camera access to use live detection", 
+        description: "Please allow camera access to use live detection",
         variant: "destructive",
         duration: 5000,
       });
