@@ -1,4 +1,5 @@
 import * as ort from 'onnxruntime-web';
+import { MetricsCollector, PerformanceMetrics, MetricsSample } from './metricsUtils';
 
 export interface Detection {
   bbox: [number, number, number, number]; // [xmin, ymin, xmax, ymax]
@@ -11,20 +12,16 @@ export interface DetectionMetrics {
   fps: number;
   medianLatency: number;
   lastProcessingTime: number;
+  p95Latency: number;
+  samplesCollected: number;
 }
 
 export class ObjectDetector {
   private session: ort.InferenceSession | null = null;
   private labels: { [key: string]: string } = {};
   private isLoading = false;
-  private frameCount = 0;
-  private lastFPSTime = Date.now();
-  private latencyHistory: number[] = [];
-  private metrics: DetectionMetrics = {
-    fps: 0,
-    medianLatency: 0,
-    lastProcessingTime: 0
-  };
+  private metricsCollector = new MetricsCollector();
+  private lastMetricsUpdate = Date.now();
 
   async initialize(): Promise<void> {
     if (this.isLoading || this.session) return;
@@ -166,7 +163,7 @@ export class ObjectDetector {
       
       // Update metrics
       const processingTime = Date.now() - startTime;
-      this.updateMetrics(processingTime);
+      this.metricsCollector.addFrame(processingTime);
       
       return detections;
     } catch (error) {
@@ -175,34 +172,23 @@ export class ObjectDetector {
     }
   }
 
-  private updateMetrics(processingTime: number): void {
-    this.metrics.lastProcessingTime = processingTime;
-    
-    // Update latency history (keep last 30 measurements)
-    this.latencyHistory.push(processingTime);
-    if (this.latencyHistory.length > 30) {
-      this.latencyHistory.shift();
-    }
-    
-    // Calculate median latency
-    const sorted = [...this.latencyHistory].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    this.metrics.medianLatency = sorted.length % 2 === 0
-      ? (sorted[mid - 1] + sorted[mid]) / 2
-      : sorted[mid];
-    
-    // Update FPS
-    this.frameCount++;
-    const now = Date.now();
-    if (now - this.lastFPSTime >= 1000) {
-      this.metrics.fps = this.frameCount;
-      this.frameCount = 0;
-      this.lastFPSTime = now;
-    }
+  getMetrics(): DetectionMetrics {
+    const perfMetrics = this.metricsCollector.getMetrics();
+    return {
+      fps: perfMetrics.currentFPS,
+      medianLatency: perfMetrics.medianLatency,
+      lastProcessingTime: 0, // Keep for backward compatibility
+      p95Latency: perfMetrics.p95Latency,
+      samplesCollected: perfMetrics.samplesCollected
+    };
   }
 
-  getMetrics(): DetectionMetrics {
-    return { ...this.metrics };
+  getMetricsSamples(): MetricsSample[] {
+    return this.metricsCollector.getSamples();
+  }
+
+  resetMetrics(): void {
+    this.metricsCollector.reset();
   }
 
   isReady(): boolean {

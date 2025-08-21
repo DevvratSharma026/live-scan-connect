@@ -62,17 +62,18 @@ export const drawMetrics = (
   metrics: DetectionMetrics,
   canvasWidth: number
 ): void => {
-  const padding = 10;
-  const lineHeight = 20;
-  const fontSize = 14;
+  const padding = 12;
+  const lineHeight = 18;
+  const fontSize = 13;
   
   ctx.font = `${fontSize}px system-ui, -apple-system, sans-serif`;
   ctx.textBaseline = 'top';
   
   const metricsText = [
     `FPS: ${metrics.fps}`,
-    `Latency: ${metrics.medianLatency.toFixed(0)}ms`,
-    `Last: ${metrics.lastProcessingTime}ms`
+    `Median: ${metrics.medianLatency.toFixed(0)}ms`,
+    `P95: ${metrics.p95Latency.toFixed(0)}ms`,
+    `Samples: ${metrics.samplesCollected}`
   ];
   
   // Calculate background size
@@ -80,14 +81,19 @@ export const drawMetrics = (
   const bgWidth = maxWidth + padding * 2;
   const bgHeight = metricsText.length * lineHeight + padding * 2;
   
-  // Draw semi-transparent background
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  // Draw semi-transparent background with rounded corners effect
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
   ctx.fillRect(padding, padding, bgWidth, bgHeight);
+  
+  // Draw subtle border
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(padding, padding, bgWidth, bgHeight);
   
   // Draw metrics text
   ctx.fillStyle = 'white';
   metricsText.forEach((text, index) => {
-    ctx.fillText(text, padding * 2, padding * 2 + index * lineHeight);
+    ctx.fillText(text, padding * 1.5, padding * 1.5 + index * lineHeight);
   });
 };
 

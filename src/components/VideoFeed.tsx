@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, CameraOff, Loader2 } from "lucide-react";
+import { Camera, CameraOff, Loader2, BarChart3, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ObjectDetector, Detection, DetectionMetrics } from "@/utils/objectDetection";
 import { drawDetections, drawMetrics, drawLoadingIndicator } from "@/utils/detectionDrawing";
+import { downloadMetricsAsJSON } from "@/utils/metricsUtils";
 
 export const VideoFeed = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -17,8 +18,12 @@ export const VideoFeed = () => {
   const [metrics, setMetrics] = useState<DetectionMetrics>({
     fps: 0,
     medianLatency: 0,
-    lastProcessingTime: 0
+    lastProcessingTime: 0,
+    p95Latency: 0,
+    samplesCollected: 0
   });
+  const [isBenchmarking, setIsBenchmarking] = useState(false);
+  const [benchmarkTimeLeft, setBenchmarkTimeLeft] = useState(0);
   const { toast } = useToast();
 
   // Initialize detector when streaming starts
@@ -171,6 +176,59 @@ export const VideoFeed = () => {
     }
   };
 
+  const startBenchmark = () => {
+    if (!isStreaming) {
+      toast({
+        title: "Camera Required",
+        description: "Please start the camera before benchmarking",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsBenchmarking(true);
+    setBenchmarkTimeLeft(30);
+    detector.resetMetrics();
+
+    toast({
+      title: "Benchmark Started",
+      description: "Collecting performance data for 30 seconds...",
+    });
+
+    // Countdown timer
+    const countdownInterval = setInterval(() => {
+      setBenchmarkTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          finishBenchmark();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const finishBenchmark = () => {
+    setIsBenchmarking(false);
+    setBenchmarkTimeLeft(0);
+
+    const samples = detector.getMetricsSamples();
+    if (samples.length > 0) {
+      downloadMetricsAsJSON(samples, `benchmark-${Date.now()}.json`);
+      toast({
+        title: "Benchmark Complete",
+        description: `Collected ${samples.length} samples. Download started.`,
+        duration: 5000,
+      });
+    } else {
+      toast({
+        title: "No Data Collected",
+        description: "No performance samples were recorded.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Process video frames for object detection
   useEffect(() => {
     if (!isStreaming || !videoRef.current || !canvasRef.current) return;
@@ -221,10 +279,14 @@ export const VideoFeed = () => {
         // Draw detections on overlay canvas
         drawDetections(ctx, newDetections, canvas.width, canvas.height);
         
-        // Draw metrics
-        const newMetrics = detector.getMetrics();
-        setMetrics(newMetrics);
-        drawMetrics(ctx, newMetrics, canvas.width);
+        // Draw metrics (update display every second for performance)
+        const now = Date.now();
+        if (now - (window as any).lastMetricsUpdate > 1000 || !(window as any).lastMetricsUpdate) {
+          const newMetrics = detector.getMetrics();
+          setMetrics(newMetrics);
+          (window as any).lastMetricsUpdate = now;
+        }
+        drawMetrics(ctx, metrics, canvas.width);
         
       } catch (error) {
         console.error('Frame processing error:', error);
@@ -235,7 +297,7 @@ export const VideoFeed = () => {
 
     const interval = setInterval(processFrame, 100); // Process at ~10 FPS
     return () => clearInterval(interval);
-  }, [isStreaming, detector, isDetectorLoading]);
+  }, [isStreaming, detector, isDetectorLoading, metrics]);
 
   return (
     <div className="w-full space-y-4">
@@ -278,7 +340,7 @@ export const VideoFeed = () => {
         )}
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex justify-center gap-3">
         <Button
           onClick={isStreaming ? stopCamera : startCamera}
           disabled={isDetectorLoading}
@@ -303,6 +365,26 @@ export const VideoFeed = () => {
             <>
               <Camera className="w-5 h-5 mr-2" />
               Start Camera
+            </>
+          )}
+        </Button>
+
+        <Button
+          onClick={startBenchmark}
+          disabled={!isStreaming || isDetectorLoading || isBenchmarking}
+          size="lg"
+          variant="outline"
+          className="min-w-[160px] border-primary/20 hover:bg-primary/10"
+        >
+          {isBenchmarking ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              {benchmarkTimeLeft}s left
+            </>
+          ) : (
+            <>
+              <BarChart3 className="w-5 h-5 mr-2" />
+              Benchmark (30s)
             </>
           )}
         </Button>
