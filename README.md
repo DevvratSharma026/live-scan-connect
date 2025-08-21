@@ -29,8 +29,8 @@ A real-time AI detection scanner with WebRTC camera access. Scan the QR code to 
 
 ```sh
 # Clone the repository
-git clone <YOUR_GIT_URL>
-cd <YOUR_PROJECT_NAME>
+git clone [<YOUR_GIT_URL>](https://github.com/DevvratSharma026/live-scan-connect.git)
+cd live-scan-connect
 
 # Install dependencies
 npm install
